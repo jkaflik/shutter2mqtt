@@ -2,20 +2,25 @@ package main
 
 import (
 	"context"
-	paho "github.com/eclipse/paho.mqtt.golang"
-	"github.com/jkaflik/shutter2mqtt/internal/mqtt"
-	"github.com/sirupsen/logrus"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
+
+	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/jkaflik/shutter2mqtt/internal/mqtt"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
+	configPath := flag.String("config", "config.yaml", "config.yaml file path")
+
 	if err := configLoader.Load(); err != nil {
 		logrus.Fatal(err)
 	}
+	loadConfigFromYamlFile(*configPath)
 
-	level, err := logrus.ParseLevel(Cfg.logLevel)
+	level, err := logrus.ParseLevel(Cfg.LogLevel)
 	if err != nil {
 		logrus.Fatal(err)
 	}
@@ -40,8 +45,8 @@ func main() {
 	}()
 
 	for _, bridge := range bridges {
-		if Cfg.homeAssistant.enabled {
-			if err := mqtt.NewHACoverFromMQTTBridge(bridge).Publish(m, Cfg.homeAssistant.topicPrefix); err != nil {
+		if Cfg.HASS.Enabled {
+			if err := mqtt.NewHACoverFromMQTTBridge(bridge).Publish(m, Cfg.HASS.TopicPrefix); err != nil {
 				logrus.Fatal(err)
 			}
 

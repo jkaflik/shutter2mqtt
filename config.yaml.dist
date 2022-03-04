@@ -1,0 +1,19 @@
+---
+log_level: info
+mqtt:
+  broker: "127.0.0.1:1883"
+hass:
+  enabled: true
+  topic_prefix: "homeassistant"
+shutters:
+  - kind: relays
+    name: "relays_fake_shutter"
+    mqtt_bridge:
+      metadata: {"integer_value": 123, "string_value": "foobar"}
+    driver:
+      relays:
+        up: {kind: "dumb"}
+        down: {kind: "dumb"}
+        full_open_position: 100
+        full_close_position: 0
+        time_to_close: 45s

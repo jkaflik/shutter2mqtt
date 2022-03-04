@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jkaflik/shutter2mqtt/internal/shutter"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 const (
@@ -31,11 +32,11 @@ type Bridge struct {
 
 func NewBridge(mqtt mqtt.Client, shutter shutter.Shutter) (*Bridge, error) {
 	bridge := &Bridge{mqtt: mqtt, shutter: shutter}
-	bridge.StateTopic = fmt.Sprintf("shutters2mqtt/%s/state", shutter.Name())
-	bridge.PositionTopic = fmt.Sprintf("shutters2mqtt/%s/position", shutter.Name())
-	bridge.MetadataTopic = fmt.Sprintf("shutters2mqtt/%s/metadata", shutter.Name())
-	bridge.CommandTopic = fmt.Sprintf("shutters2mqtt/%s/set", shutter.Name())
-	bridge.PositionChangeTopic = fmt.Sprintf("shutters2mqtt/%s/position/set", shutter.Name())
+	bridge.StateTopic = fmt.Sprintf("shutter2mqtt/%s/state", shutter.Name())
+	bridge.PositionTopic = fmt.Sprintf("shutter2mqtt/%s/position", shutter.Name())
+	bridge.MetadataTopic = fmt.Sprintf("shutter2mqtt/%s/metadata", shutter.Name())
+	bridge.CommandTopic = fmt.Sprintf("shutter2mqtt/%s/set", shutter.Name())
+	bridge.PositionChangeTopic = fmt.Sprintf("shutter2mqtt/%s/position/set", shutter.Name())
 
 	if err := bridge.restorePosition(); err != nil {
 		return nil, err
