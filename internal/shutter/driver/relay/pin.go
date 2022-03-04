@@ -1,50 +1,10 @@
-package main
+package relay
 
 import (
 	"context"
 	"github.com/racerxdl/go-mcp23017"
-	"github.com/sirupsen/logrus"
 	"time"
 )
-
-type Relay interface {
-	EnableFor(ctx context.Context, duration time.Duration) error
-}
-
-type RelayPool struct {
-	r Relay
-	c chan struct{}
-}
-
-func (p *RelayPool) EnableFor(ctx context.Context, duration time.Duration) error {
-	p.c <- struct{}{}
-	defer func() {
-		<-p.c
-	}()
-
-	return p.r.EnableFor(ctx, duration)
-}
-
-type DumbRelay struct {
-	Name string
-}
-
-func (r *DumbRelay) EnableFor(ctx context.Context, duration time.Duration) error {
-	t := time.After(duration)
-
-	logrus.Debugf("%s: dumb relay start (for %s)", r.Name, duration.String())
-
-	for {
-		select {
-		case <-t:
-			logrus.Debugf("%s: dumb relay done", r.Name)
-			return nil
-		case <-ctx.Done():
-			logrus.Debugf("%s: dumb relay exit", r.Name)
-			return nil
-		}
-	}
-}
 
 type Mcp23017Pin struct {
 	device *mcp23017.Device
@@ -72,12 +32,12 @@ type SetPin interface {
 	Low() error
 }
 
-type PinRelay struct {
+type Wired struct {
 	Pin         SetPin
 	NormalClose bool
 }
 
-func (p *PinRelay) EnableFor(ctx context.Context, duration time.Duration) error {
+func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
 	after := time.After(duration)
 	if err := p.enable(); err != nil {
 		return err
@@ -95,7 +55,7 @@ func (p *PinRelay) EnableFor(ctx context.Context, duration time.Duration) error 
 	}
 }
 
-func (p *PinRelay) enable() error {
+func (p *Wired) enable() error {
 	if !p.NormalClose {
 		return p.Pin.High()
 	}
@@ -103,7 +63,7 @@ func (p *PinRelay) enable() error {
 	return p.Pin.Low()
 }
 
-func (p *PinRelay) disable() error {
+func (p *Wired) disable() error {
 	if !p.NormalClose {
 		return p.Pin.Low()
 	}

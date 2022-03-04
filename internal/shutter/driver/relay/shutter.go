@@ -1,61 +1,12 @@
-package main
+package relay
 
 import (
 	"context"
+	"github.com/jkaflik/shutter2mqtt/internal/shutter"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"sync"
 	"time"
 )
-
-const (
-	shutterOpenState    = "open"
-	shutterClosedState  = "closed"
-	shutterOpeningState = "opening"
-	shutterClosingState = "closing"
-)
-
-type ShutterUpdateHandler func(state string, position int)
-
-type Shutter interface {
-	Name() string
-	FullOpenPosition() int
-	FullClosePosition() int
-
-	Position() int
-	State() string
-
-	OnUpdate(h ShutterUpdateHandler)
-
-	Open(ctx context.Context) error
-	Close(ctx context.Context) error
-	Stop(ctx context.Context) error
-	SetPosition(ctx context.Context, position int) error
-}
-
-type StatelessShutter interface {
-	Shutter
-
-	ResetPosition(position int) error
-}
-
-func NewRelayPair(up, down Relay) (PairedRelay, PairedRelay) {
-	l := &sync.Mutex{}
-
-	return PairedRelay{l, up}, PairedRelay{l, down}
-}
-
-type PairedRelay struct {
-	l *sync.Mutex
-	r Relay
-}
-
-func (r *PairedRelay) EnableFor(ctx context.Context, duration time.Duration) error {
-	r.l.Lock()
-	defer r.l.Unlock()
-
-	return r.r.EnableFor(ctx, duration)
-}
 
 type RelaysShutter struct {
 	rUp   Relay
@@ -66,7 +17,7 @@ type RelaysShutter struct {
 	fullClosePosition int
 	timeToClose       time.Duration
 
-	updateHandler  ShutterUpdateHandler
+	updateHandler  shutter.ShutterUpdateHandler
 	updateInterval time.Duration
 
 	currentState    string
@@ -78,18 +29,18 @@ type RelaysShutter struct {
 func (s *RelaysShutter) ResetPosition(position int) error {
 	s.currentPosition = position
 	if s.currentPosition == s.fullClosePosition {
-		s.currentState = shutterClosedState
+		s.currentState = shutter.ShutterClosedState
 	}
-	s.currentState = shutterOpenState
+	s.currentState = shutter.ShutterOpenState
 
 	return nil
 }
 
 func NewRelaysShutter(name string, up Relay, down Relay, fullOpenPosition int, fullClosePosition int, timeToClose time.Duration) *RelaysShutter {
-	shutter := &RelaysShutter{rUp: up, rDown: down, name: name, fullOpenPosition: fullOpenPosition, fullClosePosition: fullClosePosition, timeToClose: timeToClose}
-	shutter.currentState = shutterOpenState
-	shutter.currentPosition = shutter.fullOpenPosition
-	return shutter
+	s := &RelaysShutter{rUp: up, rDown: down, name: name, fullOpenPosition: fullOpenPosition, fullClosePosition: fullClosePosition, timeToClose: timeToClose}
+	s.currentState = shutter.ShutterOpenState
+	s.currentPosition = s.fullClosePosition
+	return s
 }
 
 func (s *RelaysShutter) retainContext(parent context.Context) (ctx context.Context) {
@@ -122,7 +73,7 @@ func (s *RelaysShutter) FullClosePosition() int {
 	return s.fullClosePosition
 }
 
-func (s *RelaysShutter) OnUpdate(h ShutterUpdateHandler) {
+func (s *RelaysShutter) OnUpdate(h shutter.ShutterUpdateHandler) {
 	s.updateHandler = h
 }
 
@@ -196,13 +147,13 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 		logrus.Debugf("%s: move by %d (%s)", s.name, diff, timeToMove.String())
 
 		if targetPosition > s.currentPosition {
-			s.currentState = shutterOpeningState
+			s.currentState = shutter.ShutterOpeningState
 			s.updateHandler(s.currentState, s.currentPosition)
 			if err := s.rUp.EnableFor(ctx, timeToMove); err != nil {
 				logrus.Error(err)
 			}
 		} else {
-			s.currentState = shutterClosingState
+			s.currentState = shutter.ShutterClosingState
 			s.updateHandler(s.currentState, s.currentPosition)
 			if err := s.rDown.EnableFor(ctx, timeToMove); err != nil {
 				logrus.Error(err)
@@ -212,9 +163,9 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 		// todo update position ???
 
 		if targetPosition == s.fullClosePosition {
-			s.currentState = shutterClosedState
+			s.currentState = shutter.ShutterClosedState
 		} else {
-			s.currentState = shutterOpenState
+			s.currentState = shutter.ShutterOpenState
 		}
 		s.currentPosition = targetPosition
 		s.updateHandler(s.currentState, s.currentPosition)

@@ -1,4 +1,4 @@
-module shutter2mqtt
+module github.com/jkaflik/shutter2mqtt
 
 go 1.17
 

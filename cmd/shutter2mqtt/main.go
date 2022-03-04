@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	paho "github.com/eclipse/paho.mqtt.golang"
+	"github.com/jkaflik/shutter2mqtt/internal/mqtt"
+	relay2 "github.com/jkaflik/shutter2mqtt/internal/shutter/driver/relay"
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
@@ -13,7 +15,7 @@ import (
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	opts := mqtt.NewClientOptions().
+	opts := paho.NewClientOptions().
 		SetClientID("shutters2mqtt").
 		AddBroker("10.0.10.10:1883").
 		SetUsername("panasonic").
@@ -23,37 +25,37 @@ func main() {
 		SetWriteTimeout(time.Second).
 		SetAutoReconnect(true)
 
-	m := mqtt.NewClient(opts)
+	m := paho.NewClient(opts)
 	if token := m.Connect(); token.Wait() && token.Error() != nil {
 		logrus.Fatal(token.Error())
 	}
 
-	salonL := NewRelaysShutter("salon_l", &DumbRelay{"up"}, &DumbRelay{"down"}, 100, 0, time.Second*2)
-	salonLBridge := NewMQTTBridge(m, salonL)
+	salonL := relay2.NewRelaysShutter("salon_l", &relay2.Dumb{"up"}, &relay2.Dumb{"down"}, 100, 0, time.Second*2)
+	salonLBridge := mqtt.NewBridge(m, salonL)
 	salonLBridge.SetMetadata(map[string]string{
 		"azimuth":      "253",
 		"windowTop":    "240",
 		"windowBottom": "0",
 	})
 
-	salonP := NewRelaysShutter("salon_p", &DumbRelay{"up"}, &DumbRelay{"down"}, 100, 0, time.Second*2)
-	salonPBridge := NewMQTTBridge(m, salonP)
+	salonP := relay2.NewRelaysShutter("salon_p", &relay2.Dumb{"up"}, &relay2.Dumb{"down"}, 100, 0, time.Second*2)
+	salonPBridge := mqtt.NewBridge(m, salonP)
 	salonPBridge.SetMetadata(map[string]string{
 		"azimuth":      "253",
 		"windowTop":    "240",
 		"windowBottom": "0",
 	})
 
-	kuchniaL := NewRelaysShutter("kuchnia_l", &DumbRelay{"up"}, &DumbRelay{"down"}, 100, 0, time.Second*2)
-	kuchniaLBridge := NewMQTTBridge(m, kuchniaL)
+	kuchniaL := relay2.NewRelaysShutter("kuchnia_l", &relay2.Dumb{"up"}, &relay2.Dumb{"down"}, 100, 0, time.Second*2)
+	kuchniaLBridge := mqtt.NewBridge(m, kuchniaL)
 	kuchniaLBridge.SetMetadata(map[string]string{
 		"azimuth":      "76",
 		"windowTop":    "240",
 		"windowBottom": "130",
 	})
 
-	kuchniaP := NewRelaysShutter("kuchnia_p", &DumbRelay{"up"}, &DumbRelay{"down"}, 100, 0, time.Second*2)
-	kuchniaPBridge := NewMQTTBridge(m, kuchniaP)
+	kuchniaP := relay2.NewRelaysShutter("kuchnia_p", &relay2.Dumb{"up"}, &relay2.Dumb{"down"}, 100, 0, time.Second*2)
+	kuchniaPBridge := mqtt.NewBridge(m, kuchniaP)
 	kuchniaPBridge.SetMetadata(map[string]string{
 		"azimuth":      "162",
 		"windowTop":    "240",

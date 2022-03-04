@@ -1,9 +1,9 @@
-package main
+package mqtt
 
 import (
 	"encoding/json"
 	"fmt"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
 type HACover struct {
@@ -27,7 +27,7 @@ type HACover struct {
 	} `json:"device,omitempty"`
 }
 
-func newHACoverFromMQTTBridge(bridge *MQTTBridge) HACover {
+func newHACoverFromMQTTBridge(bridge *Bridge) HACover {
 	return HACover{
 		//AvailabilityTopic: "", // todo
 		StateTopic:       bridge.StateTopic,
@@ -55,7 +55,7 @@ func newHACoverFromMQTTBridge(bridge *MQTTBridge) HACover {
 	}
 }
 
-func publishHAAutoDiscovery(client mqtt.Client, homeAssistantDiscoveryTopicPrefix string, haCover HACover) error {
+func publishHAAutoDiscovery(client paho.Client, homeAssistantDiscoveryTopicPrefix string, haCover HACover) error {
 	topic := fmt.Sprintf("%s/cover/shutters2mqtt/%s/config", homeAssistantDiscoveryTopicPrefix, haCover.Name)
 
 	payload, err := json.Marshal(haCover)

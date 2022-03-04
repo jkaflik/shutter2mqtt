@@ -1,3 +1,4 @@
 # editors
 .idea
 *.iml
+/dist

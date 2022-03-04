@@ -6,7 +6,7 @@ The initial idea is to wrap stateless Somfy shutter engines with a little bit of
 ## TODO list
 
 - [x] `RelaysShutter` implementation (with few safety checks like `PairedRelay` or `RelayPool`)
-- [ ] organise packages, setup linter
+- [x] organise packages, setup linter and CI
 - [ ] load configuration (either by file or MQTT topic)
 - [ ] unit tests
 - [ ] container image and Helm chart

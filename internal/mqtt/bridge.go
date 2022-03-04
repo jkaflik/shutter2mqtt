@@ -1,10 +1,11 @@
-package main
+package mqtt
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/jkaflik/shutter2mqtt/internal/shutter"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"strconv"
@@ -16,9 +17,9 @@ const (
 	mqttStopCmd  = "stop"
 )
 
-type MQTTBridge struct {
+type Bridge struct {
 	mqtt    mqtt.Client
-	shutter Shutter
+	shutter shutter.Shutter
 
 	StateTopic    string
 	PositionTopic string
@@ -28,8 +29,8 @@ type MQTTBridge struct {
 	PositionChangeTopic string
 }
 
-func NewMQTTBridge(mqtt mqtt.Client, shutter Shutter) *MQTTBridge {
-	bridge := &MQTTBridge{mqtt: mqtt, shutter: shutter}
+func NewBridge(mqtt mqtt.Client, shutter shutter.Shutter) *Bridge {
+	bridge := &Bridge{mqtt: mqtt, shutter: shutter}
 	bridge.StateTopic = fmt.Sprintf("shutters2mqtt/%s/state", shutter.Name())
 	bridge.PositionTopic = fmt.Sprintf("shutters2mqtt/%s/position", shutter.Name())
 	bridge.MetadataTopic = fmt.Sprintf("shutters2mqtt/%s/metadata", shutter.Name())
@@ -42,7 +43,7 @@ func NewMQTTBridge(mqtt mqtt.Client, shutter Shutter) *MQTTBridge {
 	return bridge
 }
 
-func (b *MQTTBridge) SetMetadata(value interface{}) error {
+func (b *Bridge) SetMetadata(value interface{}) error {
 	payload, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -55,7 +56,7 @@ func (b *MQTTBridge) SetMetadata(value interface{}) error {
 	return nil
 }
 
-func (b *MQTTBridge) Subscribe(ctx context.Context) error {
+func (b *Bridge) Subscribe(ctx context.Context) error {
 	go func() {
 		for {
 			select {
@@ -79,7 +80,7 @@ func (b *MQTTBridge) Subscribe(ctx context.Context) error {
 	return nil
 }
 
-func (b *MQTTBridge) onShutterUpdateHandler() ShutterUpdateHandler {
+func (b *Bridge) onShutterUpdateHandler() shutter.ShutterUpdateHandler {
 	return func(state string, position int) {
 		if token := b.mqtt.Publish(b.StateTopic, 0, true, state); token.Wait() && token.Error() != nil {
 			logrus.Errorf("%s: MQTT state publish failed: %s", b.shutter.Name(), token.Error())
@@ -90,7 +91,7 @@ func (b *MQTTBridge) onShutterUpdateHandler() ShutterUpdateHandler {
 	}
 }
 
-func (b *MQTTBridge) onCommandHandler(ctx context.Context) mqtt.MessageHandler {
+func (b *Bridge) onCommandHandler(ctx context.Context) mqtt.MessageHandler {
 	return func(c mqtt.Client, msg mqtt.Message) {
 		cmd := string(msg.Payload())
 		switch cmd {
@@ -106,7 +107,7 @@ func (b *MQTTBridge) onCommandHandler(ctx context.Context) mqtt.MessageHandler {
 	}
 }
 
-func (b *MQTTBridge) onPositionChangeHandler(ctx context.Context) mqtt.MessageHandler {
+func (b *Bridge) onPositionChangeHandler(ctx context.Context) mqtt.MessageHandler {
 	return func(c mqtt.Client, msg mqtt.Message) {
 		pos, err := strconv.Atoi(string(msg.Payload()))
 		if err != nil {
@@ -118,8 +119,8 @@ func (b *MQTTBridge) onPositionChangeHandler(ctx context.Context) mqtt.MessageHa
 	}
 }
 
-func (b *MQTTBridge) restorePosition() error {
-	shutter, ok := b.shutter.(StatelessShutter)
+func (b *Bridge) restorePosition() error {
+	shutter, ok := b.shutter.(shutter.StatelessShutter)
 	if !ok {
 		logrus.Warnf("%s: MQTT position restore: shutter is not stateless", b.shutter.Name())
 		return nil
@@ -129,16 +130,21 @@ func (b *MQTTBridge) restorePosition() error {
 		pos, err := strconv.Atoi(string(msg.Payload()))
 		if err != nil {
 			logrus.Error(err)
+			return
 		}
 		if err := shutter.ResetPosition(pos); err != nil {
 			logrus.Errorf("%s: MQTT position restore failed: %s", b.shutter.Name(), err)
+			return
 		}
 
 		logrus.Infof("%s: MQTT position restored to %d", b.shutter.Name(), pos)
 
 		if token := b.mqtt.Unsubscribe(b.PositionTopic); token.Wait() && token.Error() != nil {
 			logrus.Errorf("%s: MQTT position restore topic unsubscribe failed: %s", b.shutter.Name(), token.Error())
+			return
 		}
+
+		logrus.Debugf("%s: MQTT position restore topic unsubscribed", b.shutter.Name())
 	}
 
 	if token := b.mqtt.Subscribe(b.PositionTopic, 0, restoreHandler); token.Wait() && token.Error() != nil {
