@@ -4,46 +4,29 @@ import (
 	"context"
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jkaflik/shutter2mqtt/internal/mqtt"
-	"github.com/jkaflik/shutter2mqtt/internal/shutter/driver/relay"
 	"github.com/sirupsen/logrus"
 	"log"
 	"os"
 	"os/signal"
-	"time"
 )
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
+	if err := configLoader.Load(); err != nil {
+		logrus.Fatal(err)
+	}
 
-	opts := paho.NewClientOptions().
-		SetClientID("shutters2mqtt").
-		AddBroker("10.0.10.10:1883").
-		SetUsername("panasonic").
-		SetPassword("panasonic").
-		SetConnectTimeout(time.Second).
-		SetPingTimeout(time.Second).
-		SetWriteTimeout(time.Second).
-		SetAutoReconnect(true)
+	level, err := logrus.ParseLevel(Cfg.logLevel)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	logrus.SetLevel(level)
 
-	m := paho.NewClient(opts)
+	m := paho.NewClient(pahoOptsFromConfig())
 	if token := m.Connect(); token.Wait() && token.Error() != nil {
 		logrus.Fatal(token.Error())
 	}
 
-	shutter := relay.NewRelaysShutter("shutter", &relay.Dumb{Name: "up"}, &relay.Dumb{Name: "down"}, 100, 0, time.Second*2)
-	mqttBridge, err := mqtt.NewBridge(m, shutter)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := mqttBridge.SetMetadata(map[string]string{
-		"property": "value",
-	}); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := mqtt.NewHACoverFromMQTTBridge(mqttBridge).Publish(m, "homeassistant"); err != nil {
-		logrus.Fatal(err)
-	}
+	bridges := shutter2mqttFromConfig(m)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -56,9 +39,18 @@ func main() {
 		cancel()
 	}()
 
-	if err := mqttBridge.Subscribe(ctx); err != nil {
-		logrus.Error(err)
-		cancel()
+	for _, bridge := range bridges {
+		if Cfg.homeAssistant.enabled {
+			if err := mqtt.NewHACoverFromMQTTBridge(bridge).Publish(m, Cfg.homeAssistant.topicPrefix); err != nil {
+				logrus.Fatal(err)
+			}
+
+		}
+
+		if err := bridge.Subscribe(ctx); err != nil {
+			logrus.Error(err)
+			cancel()
+		}
 	}
 
 	for range ctx.Done() {

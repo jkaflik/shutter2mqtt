@@ -34,8 +34,8 @@ type SetPin interface {
 }
 
 type Wired struct {
-	Pin         SetPin
-	NormalClose bool
+	Pin          SetPin
+	NormalClosed bool
 }
 
 func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
@@ -61,7 +61,7 @@ func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
 }
 
 func (p *Wired) enable() error {
-	if !p.NormalClose {
+	if !p.NormalClosed {
 		return p.Pin.High()
 	}
 
@@ -69,7 +69,7 @@ func (p *Wired) enable() error {
 }
 
 func (p *Wired) disable() error {
-	if !p.NormalClose {
+	if !p.NormalClosed {
 		return p.Pin.Low()
 	}
 

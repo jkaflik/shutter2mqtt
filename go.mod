@@ -10,9 +10,8 @@ require (
 )
 
 require (
-	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/logrusorgru/aurora v0.0.0-20181002194514-a7b3b318ed4e // indirect
-	github.com/quan-to/slog v0.0.0-20190414172229-8bce0937f2c1 // indirect
+	github.com/cristalhq/aconfig v0.16.8
+	github.com/cristalhq/aconfig/aconfigyaml v0.16.1
 	github.com/stretchr/testify v1.7.0 // indirect
 	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
 	golang.org/x/sys v0.0.0-20201126233918-771906719818 // indirect
