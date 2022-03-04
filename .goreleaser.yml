@@ -5,7 +5,7 @@ before:
     - go mod tidy
     - go test ./...
 builds:
-  - main: ./cmd/shutter2mqtt/main.go
+  - main: ./cmd/shutter2mqtt
     env:
       - CGO_ENABLED=0
     goos:
