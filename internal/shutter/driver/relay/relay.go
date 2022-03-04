@@ -2,20 +2,25 @@ package relay
 
 import (
 	"context"
-	"github.com/sirupsen/logrus"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type Relay interface {
 	EnableFor(ctx context.Context, duration time.Duration) error
 }
 
-type Pool struct {
+type PoolProxy struct {
 	r Relay
 	c chan struct{}
 }
 
-func (p *Pool) EnableFor(ctx context.Context, duration time.Duration) error {
+func NewPoolProxy(r Relay, pool chan struct{}) *PoolProxy {
+	return &PoolProxy{r: r, c: pool}
+}
+
+func (p *PoolProxy) EnableFor(ctx context.Context, duration time.Duration) error {
 	p.c <- struct{}{}
 	defer func() {
 		<-p.c
