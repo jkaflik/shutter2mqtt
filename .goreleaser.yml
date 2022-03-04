@@ -35,7 +35,6 @@ checksum:
 dockers:
   - image_templates:
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-amd64
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-amd64
     use_buildx: true
     dockerfile: Dockerfile
     build_flag_templates:
@@ -43,7 +42,6 @@ dockers:
 
   - image_templates:
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-arm7
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-arm7
     use_buildx: true
     dockerfile: Dockerfile
     goarch: arm
@@ -53,7 +51,6 @@ dockers:
 
   - image_templates:
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-arm64
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-arm64
     use_buildx: true
     dockerfile: Dockerfile
     goarch: arm64
@@ -72,15 +69,3 @@ docker_manifests:
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-amd64
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-arm64
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-arm7
-
-  # dockerhub
-  - name_template: jkaflik/{{.ProjectName}}:v{{ .Version }}
-    image_templates:
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-amd64
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-arm64
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-arm7
-  - name_template: jkaflik/{{.ProjectName}}:latest
-    image_templates:
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-amd64
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-arm64
-      - jkaflik/{{.ProjectName}}:v{{ .Version }}-arm7
