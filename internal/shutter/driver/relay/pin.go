@@ -3,6 +3,7 @@ package relay
 import (
 	"context"
 	"github.com/racerxdl/go-mcp23017"
+	"github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -42,7 +43,11 @@ func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
 	if err := p.enable(); err != nil {
 		return err
 	}
-	defer p.disable()
+	defer func() {
+		if err := p.disable(); err != nil {
+			logrus.Error(err)
+		}
+	}()
 
 	for {
 		select {

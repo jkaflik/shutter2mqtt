@@ -17,8 +17,7 @@ type RelaysShutter struct {
 	fullClosePosition int
 	timeToClose       time.Duration
 
-	updateHandler  shutter.ShutterUpdateHandler
-	updateInterval time.Duration
+	updateHandler shutter.ShutterUpdateHandler
 
 	currentState    string
 	currentPosition int

@@ -29,18 +29,21 @@ type Bridge struct {
 	PositionChangeTopic string
 }
 
-func NewBridge(mqtt mqtt.Client, shutter shutter.Shutter) *Bridge {
+func NewBridge(mqtt mqtt.Client, shutter shutter.Shutter) (*Bridge, error) {
 	bridge := &Bridge{mqtt: mqtt, shutter: shutter}
 	bridge.StateTopic = fmt.Sprintf("shutters2mqtt/%s/state", shutter.Name())
 	bridge.PositionTopic = fmt.Sprintf("shutters2mqtt/%s/position", shutter.Name())
 	bridge.MetadataTopic = fmt.Sprintf("shutters2mqtt/%s/metadata", shutter.Name())
 	bridge.CommandTopic = fmt.Sprintf("shutters2mqtt/%s/set", shutter.Name())
 	bridge.PositionChangeTopic = fmt.Sprintf("shutters2mqtt/%s/position/set", shutter.Name())
-	bridge.restorePosition()
+
+	if err := bridge.restorePosition(); err != nil {
+		return nil, err
+	}
 
 	shutter.OnUpdate(bridge.onShutterUpdateHandler())
 
-	return bridge
+	return bridge, nil
 }
 
 func (b *Bridge) SetMetadata(value interface{}) error {
@@ -58,13 +61,10 @@ func (b *Bridge) SetMetadata(value interface{}) error {
 
 func (b *Bridge) Subscribe(ctx context.Context) error {
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				if token := b.mqtt.Unsubscribe(b.PositionChangeTopic, b.CommandTopic); token.Wait() && token.Error() != nil {
-					logrus.Errorf("%s: MQTT topics unsubscribe failed: %s", b.shutter.Name(), token.Error())
-				}
-			}
+		<-ctx.Done()
+
+		if token := b.mqtt.Unsubscribe(b.PositionChangeTopic, b.CommandTopic); token.Wait() && token.Error() != nil {
+			logrus.Errorf("%s: MQTT topics unsubscribe failed: %s", b.shutter.Name(), token.Error())
 		}
 	}()
 
@@ -91,19 +91,24 @@ func (b *Bridge) onShutterUpdateHandler() shutter.ShutterUpdateHandler {
 	}
 }
 
+var unsupportedCommandErr = errors.New("unsupported command received")
+
 func (b *Bridge) onCommandHandler(ctx context.Context) mqtt.MessageHandler {
 	return func(c mqtt.Client, msg mqtt.Message) {
+		var err error
 		cmd := string(msg.Payload())
 		switch cmd {
 		case mqttOpenCmd:
-			b.shutter.Open(ctx)
+			err = b.shutter.Open(ctx)
 		case mqttCloseCmd:
-			b.shutter.Close(ctx)
+			err = b.shutter.Close(ctx)
 		case mqttStopCmd:
-			b.shutter.Stop(ctx)
+			err = b.shutter.Stop(ctx)
 		default:
-			logrus.Errorf("%s: MQTT unsupported %s command received", b.shutter.Name(), cmd)
+			err = unsupportedCommandErr
 		}
+
+		logrus.Errorf("%s: MQTT %s command: %s", b.shutter.Name(), cmd, err.Error())
 	}
 }
 
