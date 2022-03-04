@@ -18,7 +18,7 @@ jobs:
         uses: Ilshidur/action-discord@master
         if: always()
         with:
-          args: '{{ GITHUB_ACTION } start for {{ EVENT_PAYLOAD.repository.full_name }}'
+          args: '{{ GITHUB_ACTION }} start for {{ EVENT_PAYLOAD.repository.full_name }}'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
@@ -45,6 +45,6 @@ jobs:
         uses: Ilshidur/action-discord@master
         if: always()
         with:
-          args: '{{ GITHUB_ACTION } finish for {{ EVENT_PAYLOAD.repository.full_name }}'
+          args: '{{ GITHUB_ACTION }} finish for {{ EVENT_PAYLOAD.repository.full_name }}'
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
