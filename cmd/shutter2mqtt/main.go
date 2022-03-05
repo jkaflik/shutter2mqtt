@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	paho "github.com/eclipse/paho.mqtt.golang"
 	"github.com/jkaflik/shutter2mqtt/internal/mqtt"
@@ -13,6 +14,11 @@ import (
 )
 
 func main() {
+	logrus.SetFormatter(&logrus.TextFormatter{
+		DisableColors: false,
+		FullTimestamp: true,
+	})
+
 	configPath := flag.String("config", "config.yaml", "config.yaml file path")
 
 	if err := configLoader.Load(); err != nil {
@@ -31,12 +37,12 @@ func main() {
 		logrus.Fatal(token.Error())
 	}
 
-	bridges := shutter2mqttFromConfig(m)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	bridges := shutter2mqttFromConfig(ctx, m)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
 		oscall := <-c
@@ -59,7 +65,9 @@ func main() {
 		}
 	}
 
-	for range ctx.Done() {
-		return
-	}
+	<-ctx.Done()
+
+	cleanupTime := time.Second
+	logrus.Infof("cleanups for %s...", cleanupTime.String())
+	time.Sleep(cleanupTime)
 }

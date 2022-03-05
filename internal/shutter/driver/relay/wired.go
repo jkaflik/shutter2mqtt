@@ -2,6 +2,7 @@ package relay
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/racerxdl/go-mcp23017"
@@ -22,11 +23,23 @@ func NewMcp23017Pin(device *mcp23017.Device, pin uint8) (p *Mcp23017Pin, err err
 }
 
 func (m *Mcp23017Pin) High() error {
-	return m.device.DigitalWrite(m.pin, mcp23017.HIGH)
+	if !m.device.IsPresent() {
+		return errors.New("device not alive")
+	}
+
+	logrus.Debugf("mcp23017: enable HIGH on %d", m.pin)
+
+	return m.device.DigitalWrite(m.pin, mcp23017.LOW) // todo understand why LOW is HIGH and opposite
 }
 
 func (m *Mcp23017Pin) Low() error {
-	return m.device.DigitalWrite(m.pin, mcp23017.LOW)
+	if !m.device.IsPresent() {
+		return errors.New("device not alive")
+	}
+
+	logrus.Debugf("mcp23017: enable LOW on %d", m.pin)
+
+	return m.device.DigitalWrite(m.pin, mcp23017.HIGH) // todo understand why LOW is HIGH and opposite
 }
 
 type SetPin interface {
@@ -56,23 +69,15 @@ func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
 			return nil
 		case <-ctx.Done():
 			logrus.Debug("wired relay context exit")
-			return nil
+			return ctx.Err()
 		}
 	}
 }
 
 func (p *Wired) enable() error {
-	if !p.NormalClosed {
-		return p.Pin.Low()
-	}
-
 	return p.Pin.High()
 }
 
 func (p *Wired) disable() error {
-	if !p.NormalClosed {
-		return p.Pin.High()
-	}
-
 	return p.Pin.Low()
 }

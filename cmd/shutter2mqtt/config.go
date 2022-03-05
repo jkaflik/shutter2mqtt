@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -61,8 +62,6 @@ type cfgDrivers struct {
 		Mcp23017 map[int]struct {
 			Bus          uint8 `yaml:"bus" default:"1"`
 			DeviceNumber uint8 `yaml:"device_number" default:"0"`
-
-			d *mcp23017.Device `yaml:"-"`
 		} `yaml:""`
 	} `yaml:"relay"`
 }
@@ -126,9 +125,9 @@ func pahoOptsFromConfig() *paho.ClientOptions {
 		SetAutoReconnect(true)
 }
 
-func shutter2mqttFromConfig(client paho.Client) (bridges []*mqtt.Bridge) {
+func shutter2mqttFromConfig(ctx context.Context, client paho.Client) (bridges []*mqtt.Bridge) {
 	for _, cfg := range Cfg.Shutters {
-		s := shutterFromConfig(cfg)
+		s := shutterFromConfig(ctx, cfg)
 		bridge, err := mqtt.NewBridge(client, s)
 		if err != nil {
 			logrus.Fatal(err)
@@ -144,12 +143,12 @@ func shutter2mqttFromConfig(client paho.Client) (bridges []*mqtt.Bridge) {
 	return bridges
 }
 
-func shutterFromConfig(cfg cfgShutter) shutter.Shutter {
+func shutterFromConfig(ctx context.Context, cfg cfgShutter) shutter.Shutter {
 	if cfg.Kind == "relays" {
 		return relay.NewRelaysShutter(
 			cfg.Name,
-			relayFromConfig(cfg.Driver.Relays.Up),
-			relayFromConfig(cfg.Driver.Relays.Down),
+			relayFromConfig(ctx, cfg.Driver.Relays.Up),
+			relayFromConfig(ctx, cfg.Driver.Relays.Down),
 			cfg.Driver.Relays.FullOpenPosition,
 			cfg.Driver.Relays.FullClosePosition,
 			cfg.Driver.Relays.TimeToClose,
@@ -160,10 +159,10 @@ func shutterFromConfig(cfg cfgShutter) shutter.Shutter {
 	return nil
 }
 
-func relayFromConfig(cfg cfgRelay) relay.Relay {
+func relayFromConfig(ctx context.Context, cfg cfgRelay) relay.Relay {
 	if cfg.Kind == "wired" {
 		return wrapRelayWithPoolProxy(&relay.Wired{
-			Pin:          wiredRelaySetPinFromConfig(cfg.Pin),
+			Pin:          wiredRelaySetPinFromConfig(ctx, cfg.Pin),
 			NormalClosed: cfg.NormalClosed,
 		})
 	}
@@ -184,9 +183,9 @@ func wrapRelayWithPoolProxy(r relay.Relay) relay.Relay {
 	return relay.NewPoolProxy(r, relaysPool)
 }
 
-func wiredRelaySetPinFromConfig(cfg cfgWiredRelaySetPin) relay.SetPin {
+func wiredRelaySetPinFromConfig(ctx context.Context, cfg cfgWiredRelaySetPin) relay.SetPin {
 	if cfg.Kind == "mcp23017" {
-		device := mcp23017DeviceFromConfigByID(cfg.Mcp23017)
+		device := mcp23017DeviceFromConfigByID(ctx, cfg.Mcp23017)
 
 		p, err := relay.NewMcp23017Pin(device, cfg.Pin)
 		if err != nil {
@@ -199,7 +198,9 @@ func wiredRelaySetPinFromConfig(cfg cfgWiredRelaySetPin) relay.SetPin {
 	return nil
 }
 
-func mcp23017DeviceFromConfigByID(id int) *mcp23017.Device {
+var mcpDevices = map[int]*mcp23017.Device{}
+
+func mcp23017DeviceFromConfigByID(ctx context.Context, id int) *mcp23017.Device {
 	if Cfg.Drivers.Relay.Mcp23017 == nil {
 		logrus.Fatal("drivers.relay.mcp23017 not defined")
 	}
@@ -210,16 +211,28 @@ func mcp23017DeviceFromConfigByID(id int) *mcp23017.Device {
 		return nil
 	}
 
-	if cfg.d == nil {
+	dev := mcpDevices[id]
+	if dev == nil {
 		var err error
-		cfg.d, err = mcp23017.Open(cfg.Bus, cfg.DeviceNumber)
+		dev, err = mcp23017.Open(cfg.Bus, cfg.DeviceNumber)
 		if err != nil {
 			logrus.Fatal(err)
 		}
-		if err := cfg.d.Reset(); err != nil {
+		go func() {
+			<-ctx.Done()
+			if err := dev.Close(); err != nil {
+				logrus.Errorf("mcp23017: close failed %s", err)
+				return
+			}
+
+			logrus.Infof("mcp23017: close")
+		}()
+		if err := dev.Reset(); err != nil {
 			logrus.Fatal(err)
 		}
+
+		mcpDevices[id] = dev
 	}
 
-	return cfg.d
+	return dev
 }

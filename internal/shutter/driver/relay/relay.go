@@ -36,16 +36,16 @@ type Dumb struct {
 func (r *Dumb) EnableFor(ctx context.Context, duration time.Duration) error {
 	t := time.After(duration)
 
-	logrus.Debugf("%s: dumb shutter start (for %s)", r.Name, duration.String())
+	logrus.Warnf("%s: dumb shutter start (for %s)", r.Name, duration.String())
 
 	for {
 		select {
 		case <-t:
-			logrus.Debugf("%s: dumb shutter done", r.Name)
+			logrus.Warnf("%s: dumb shutter done", r.Name)
 			return nil
 		case <-ctx.Done():
-			logrus.Debugf("%s: dumb shutter exit", r.Name)
-			return nil
+			logrus.Warnf("%s: dumb shutter exit", r.Name)
+			return ctx.Err()
 		}
 	}
 }

@@ -98,6 +98,14 @@ func (s *RelaysShutter) Stop(_ context.Context) error {
 		s.cancelCurrentContext()
 	}
 
+	if s.currentPosition == s.fullClosePosition {
+		s.currentState = shutter.ShutterClosedState
+	} else {
+		s.currentState = shutter.ShutterOpenState
+	}
+
+	s.updateHandler(s.currentState, s.currentPosition)
+
 	return nil
 }
 func (s *RelaysShutter) SetPosition(ctx context.Context, targetPosition int) error {
@@ -146,12 +154,20 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 		timeToMove := (s.timeToClose * time.Duration(diff)) / 100
 		logrus.Debugf("%s: move by %d (%s)", s.name, diff, timeToMove.String())
 
+		// todo update position on fly or have a optimistic move
+
+		// todo refactor
 		if targetPosition > s.currentPosition {
 			s.currentState = shutter.ShutterOpeningState
 			s.updateHandler(s.currentState, s.currentPosition)
 			logrus.Debugf("%s: enable up relay for %s", s.name, timeToMove.String())
 			if err := s.rUp.EnableFor(ctx, timeToMove); err != nil {
-				logrus.Errorf("%s: enable up relay error: %s", s.name, err)
+				if err == context.Canceled || err == context.DeadlineExceeded {
+					logrus.Infof("%s: set position %d canceled", s.name, targetPosition)
+					// todo calculate position
+				} else {
+					logrus.Errorf("%s: enable up relay error: %s", s.name, err)
+				}
 				return
 			}
 		} else {
@@ -159,12 +175,15 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 			s.updateHandler(s.currentState, s.currentPosition)
 			logrus.Debugf("%s: enable down relay for %s", s.name, timeToMove.String())
 			if err := s.rDown.EnableFor(ctx, timeToMove); err != nil {
-				logrus.Errorf("%s: enable down relay error: %s", s.name, err)
+				if err == context.Canceled || err == context.DeadlineExceeded {
+					logrus.Infof("%s: set position %d canceled", s.name, targetPosition)
+					// todo calculate position
+				} else {
+					logrus.Errorf("%s: enable down relay error: %s", s.name, err)
+				}
 				return
 			}
 		}
-
-		// todo update position ???
 
 		if targetPosition == s.fullClosePosition {
 			s.currentState = shutter.ShutterClosedState
