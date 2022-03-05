@@ -57,6 +57,7 @@ type cfgShutter struct {
 
 type cfgDrivers struct {
 	Relay struct {
+		Pool     int `yaml:"pool" default:"0"`
 		Mcp23017 map[int]struct {
 			Bus          uint8 `yaml:"bus" default:"1"`
 			DeviceNumber uint8 `yaml:"device_number" default:"0"`
@@ -93,6 +94,8 @@ var configLoader = aconfig.LoaderFor(&Cfg, aconfig.Config{
 	EnvPrefix: "S2M",
 })
 
+var relaysPool chan struct{}
+
 func loadConfigFromYamlFile(filename string) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -104,6 +107,10 @@ func loadConfigFromYamlFile(filename string) {
 	if err := yaml.NewDecoder(f).Decode(&Cfg); err != nil {
 		logrus.Fatal(err)
 		return
+	}
+
+	if Cfg.Drivers.Relay.Pool > 0 {
+		relaysPool = make(chan struct{}, Cfg.Drivers.Relay.Pool)
 	}
 }
 
@@ -155,18 +162,26 @@ func shutterFromConfig(cfg cfgShutter) shutter.Shutter {
 
 func relayFromConfig(cfg cfgRelay) relay.Relay {
 	if cfg.Kind == "wired" {
-		return &relay.Wired{
+		return wrapRelayWithPoolProxy(&relay.Wired{
 			Pin:          wiredRelaySetPinFromConfig(cfg.Pin),
 			NormalClosed: cfg.NormalClosed,
-		}
+		})
 	}
 
 	if cfg.Kind == "dumb" {
-		return &relay.Dumb{Name: cfg.Kind}
+		return wrapRelayWithPoolProxy(&relay.Dumb{Name: cfg.Kind})
 	}
 
 	logrus.Fatalf("%s is not supported relay kind", cfg.Kind)
 	return nil
+}
+
+func wrapRelayWithPoolProxy(r relay.Relay) relay.Relay {
+	if relaysPool == nil {
+		return r
+	}
+
+	return relay.NewPoolProxy(r, relaysPool)
 }
 
 func wiredRelaySetPinFromConfig(cfg cfgWiredRelaySetPin) relay.SetPin {

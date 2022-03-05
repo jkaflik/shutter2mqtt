@@ -38,6 +38,7 @@ shutters:
         time_to_close: 12s540ms
 drivers:
   relay:
+    pool: 4
     mcp23017:
       0:
         bus: 1
