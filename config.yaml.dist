@@ -7,7 +7,7 @@ hass:
   topic_prefix: "homeassistant"
 shutters:
   - kind: relays
-    name: "relays_fake_shutter"
+    name: "dumb_relays_fake_shutter"
     mqtt_bridge:
       metadata: {"integer_value": 123, "string_value": "foobar"}
     driver:
@@ -17,3 +17,31 @@ shutters:
         full_open_position: 100
         full_close_position: 0
         time_to_close: 45s
+  - kind: relays
+    name: "wired_relays_shutter"
+    driver:
+      relays:
+        up:
+          kind: "wired"
+          pin:
+            kind: "mcp23017"
+            pin: 0
+            mcp23017: 0
+        down:
+          kind: "wired"
+          pin:
+            kind: "mcp23017"
+            pin: 0
+            mcp23017: 1
+        full_open_position: 100
+        full_close_position: 0
+        time_to_close: 12s540ms
+drivers:
+  relay:
+    mcp23017:
+      0:
+        bus: 1
+        device_number: 0
+      1:
+        bus: 1
+        device_number: 1
