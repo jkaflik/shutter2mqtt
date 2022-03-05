@@ -2,9 +2,10 @@ package relay
 
 import (
 	"context"
+	"time"
+
 	"github.com/racerxdl/go-mcp23017"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type Mcp23017Pin struct {
@@ -52,26 +53,26 @@ func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
 	for {
 		select {
 		case <-after:
+			return nil
 		case <-ctx.Done():
+			logrus.Debug("wired relay context exit")
 			return nil
 		}
-
-		time.Sleep(time.Millisecond)
 	}
 }
 
 func (p *Wired) enable() error {
 	if !p.NormalClosed {
-		return p.Pin.High()
-	}
-
-	return p.Pin.Low()
-}
-
-func (p *Wired) disable() error {
-	if !p.NormalClosed {
 		return p.Pin.Low()
 	}
 
 	return p.Pin.High()
+}
+
+func (p *Wired) disable() error {
+	if !p.NormalClosed {
+		return p.Pin.High()
+	}
+
+	return p.Pin.Low()
 }

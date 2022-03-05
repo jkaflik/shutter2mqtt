@@ -58,11 +58,11 @@ type cfgShutter struct {
 type cfgDrivers struct {
 	Relay struct {
 		Mcp23017 map[int]struct {
-			Bus     uint8 `yaml:"bus"`
-			Address uint8 `yaml:"address"`
+			Bus          uint8 `yaml:"bus" default:"1"`
+			DeviceNumber uint8 `yaml:"device_number" default:"0"`
 
 			d *mcp23017.Device `yaml:"-"`
-		} `yaml:"mcp23017"`
+		} `yaml:""`
 	} `yaml:"relay"`
 }
 
@@ -197,8 +197,11 @@ func mcp23017DeviceFromConfigByID(id int) *mcp23017.Device {
 
 	if cfg.d == nil {
 		var err error
-		cfg.d, err = mcp23017.Open(cfg.Bus, cfg.Address)
+		cfg.d, err = mcp23017.Open(cfg.Bus, cfg.DeviceNumber)
 		if err != nil {
+			logrus.Fatal(err)
+		}
+		if err := cfg.d.Reset(); err != nil {
 			logrus.Fatal(err)
 		}
 	}

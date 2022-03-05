@@ -3,6 +3,7 @@ package mqtt
 import (
 	"encoding/json"
 	"fmt"
+
 	paho "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -31,6 +32,9 @@ type haCover struct {
 	SetPositionTopic string `json:"set_pos_t"`
 	PositionOpen     int    `json:"pos_open"`
 	PositionClosed   int    `json:"pos_clsd"`
+	PayloadOpen      string `json:"pl_open"`
+	PayloadStop      string `json:"pl_stop"`
+	PayloadClose     string `json:"pl_cls"`
 }
 
 func NewHACoverFromMQTTBridge(bridge *Bridge) haCover {
@@ -42,7 +46,7 @@ func NewHACoverFromMQTTBridge(bridge *Bridge) haCover {
 			DeviceClass: "shutter",
 
 			Device: haDevice{
-				Identifiers:  nil,
+				Identifiers:  []string{"shutter2mqtt"},
 				Manufacturer: "Somfy",
 				Model:        "Ilmo",
 				Name:         bridge.shutter.Name(),
@@ -55,17 +59,16 @@ func NewHACoverFromMQTTBridge(bridge *Bridge) haCover {
 		SetPositionTopic: bridge.PositionChangeTopic,
 		PositionOpen:     bridge.shutter.FullOpenPosition(),
 		PositionClosed:   bridge.shutter.FullClosePosition(),
+		PayloadOpen:      mqttOpenCmd,
+		PayloadStop:      mqttStopCmd,
+		PayloadClose:     mqttCloseCmd,
 	}
 }
 
-func (e haEntity) Publish(client paho.Client, homeAssistantDiscoveryTopicPrefix string) error {
-	return publishHAAutoDiscovery(client, homeAssistantDiscoveryTopicPrefix, e)
-}
+func PublishHAAutoDiscovery(client paho.Client, homeAssistantDiscoveryTopicPrefix string, haCover haCover) error {
+	topic := fmt.Sprintf("%s/cover/shutters2mqtt/%s/config", homeAssistantDiscoveryTopicPrefix, haCover.Name)
 
-func publishHAAutoDiscovery(client paho.Client, homeAssistantDiscoveryTopicPrefix string, haEntity haEntity) error {
-	topic := fmt.Sprintf("%s/cover/shutters2mqtt/%s/config", homeAssistantDiscoveryTopicPrefix, haEntity.Name)
-
-	payload, err := json.Marshal(haEntity)
+	payload, err := json.Marshal(haCover)
 	if err != nil {
 		return err
 	}

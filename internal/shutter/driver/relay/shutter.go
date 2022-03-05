@@ -2,10 +2,11 @@ package relay
 
 import (
 	"context"
+	"time"
+
 	"github.com/jkaflik/shutter2mqtt/internal/shutter"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 type RelaysShutter struct {
@@ -148,14 +149,18 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 		if targetPosition > s.currentPosition {
 			s.currentState = shutter.ShutterOpeningState
 			s.updateHandler(s.currentState, s.currentPosition)
+			logrus.Debugf("%s: enable up relay for %s", s.name, timeToMove.String())
 			if err := s.rUp.EnableFor(ctx, timeToMove); err != nil {
-				logrus.Error(err)
+				logrus.Errorf("%s: enable up relay error: %s", s.name, err)
+				return
 			}
 		} else {
 			s.currentState = shutter.ShutterClosingState
 			s.updateHandler(s.currentState, s.currentPosition)
+			logrus.Debugf("%s: enable down relay for %s", s.name, timeToMove.String())
 			if err := s.rDown.EnableFor(ctx, timeToMove); err != nil {
-				logrus.Error(err)
+				logrus.Errorf("%s: enable down relay error: %s", s.name, err)
+				return
 			}
 		}
 

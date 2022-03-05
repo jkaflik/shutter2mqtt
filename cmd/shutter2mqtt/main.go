@@ -46,7 +46,8 @@ func main() {
 
 	for _, bridge := range bridges {
 		if Cfg.HASS.Enabled {
-			if err := mqtt.NewHACoverFromMQTTBridge(bridge).Publish(m, Cfg.HASS.TopicPrefix); err != nil {
+			entity := mqtt.NewHACoverFromMQTTBridge(bridge)
+			if err := mqtt.PublishHAAutoDiscovery(m, Cfg.HASS.TopicPrefix, entity); err != nil {
 				logrus.Fatal(err)
 			}
 

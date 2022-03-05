@@ -109,7 +109,9 @@ func (b *Bridge) onCommandHandler(ctx context.Context) mqtt.MessageHandler {
 			err = unsupportedCommandErr
 		}
 
-		logrus.Errorf("%s: MQTT %s command: %s", b.shutter.Name(), cmd, err.Error())
+		if err != nil {
+			logrus.Errorf("%s: MQTT %s command: %s", b.shutter.Name(), cmd, err.Error())
+		}
 	}
 }
 
