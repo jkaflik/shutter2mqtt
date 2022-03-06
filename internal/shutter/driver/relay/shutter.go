@@ -154,35 +154,27 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 		timeToMove := (s.timeToClose * time.Duration(diff)) / 100
 		logrus.Debugf("%s: move by %d (%s)", s.name, diff, timeToMove.String())
 
-		// todo update position on fly or have a optimistic move
-
 		// todo refactor
+		var relay Relay
 		if targetPosition > s.currentPosition {
 			s.currentState = shutter.ShutterOpeningState
-			s.updateHandler(s.currentState, s.currentPosition)
-			logrus.Debugf("%s: enable up relay for %s", s.name, timeToMove.String())
-			if err := s.rUp.EnableFor(ctx, timeToMove); err != nil {
-				if err == context.Canceled || err == context.DeadlineExceeded {
-					logrus.Infof("%s: set position %d canceled", s.name, targetPosition)
-					// todo calculate position
-				} else {
-					logrus.Errorf("%s: enable up relay error: %s", s.name, err)
-				}
-				return
-			}
+			relay = s.rUp
 		} else {
 			s.currentState = shutter.ShutterClosingState
-			s.updateHandler(s.currentState, s.currentPosition)
-			logrus.Debugf("%s: enable down relay for %s", s.name, timeToMove.String())
-			if err := s.rDown.EnableFor(ctx, timeToMove); err != nil {
-				if err == context.Canceled || err == context.DeadlineExceeded {
-					logrus.Infof("%s: set position %d canceled", s.name, targetPosition)
-					// todo calculate position
-				} else {
-					logrus.Errorf("%s: enable down relay error: %s", s.name, err)
-				}
-				return
+			relay = s.rDown
+		}
+
+		go s.calculatePositionDuringMove(ctx, targetPosition, timeToMove)
+
+		logrus.Debugf("%s: enable relay for %s", s.name, timeToMove.String())
+		s.updateHandler(s.currentState, s.currentPosition)
+		if err := relay.EnableFor(ctx, timeToMove); err != nil {
+			if err == context.Canceled || err == context.DeadlineExceeded {
+				logrus.Infof("%s: set position %d canceled", s.name, targetPosition)
+			} else {
+				logrus.Errorf("%s: enable relay error: %s", s.name, err)
 			}
+			return
 		}
 
 		if targetPosition == s.fullClosePosition {
@@ -197,4 +189,33 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 	}()
 
 	return nil
+}
+
+func (s *RelaysShutter) calculatePositionDuringMove(ctx context.Context, targetPosition int, timeToMove time.Duration) {
+	logrus.Debugf("%s: begin position calculation", s.name)
+	s.updateHandler(s.currentState, s.currentPosition)
+
+	after := time.After(timeToMove)
+	every := time.NewTicker(s.timeToClose / time.Duration(s.fullOpenPosition-s.fullClosePosition))
+	defer every.Stop()
+	for {
+		select {
+		case <-after:
+			logrus.Debugf("%s: timeout position calculation", s.name)
+			return
+		case <-ctx.Done():
+			logrus.Debugf("%s: exit position calculation", s.name)
+			return
+		case <-every.C:
+			if s.currentPosition < targetPosition {
+				logrus.Tracef("%s: increase position", s.name)
+				s.currentPosition++
+			} else {
+				logrus.Tracef("%s: decrease position", s.name)
+				s.currentPosition--
+			}
+
+			s.updateHandler(s.currentState, s.currentPosition)
+		}
+	}
 }
