@@ -32,14 +32,24 @@ func main() {
 	}
 	logrus.SetLevel(level)
 
-	m := paho.NewClient(pahoOptsFromConfig())
+	ctx, cancel := context.WithCancel(context.Background())
+	var bridges []*mqtt.Bridge
+	cfg := pahoOptsFromConfig()
+	cfg.OnConnect = func(m paho.Client) {
+		logrus.Info("MQTT broker connected")
+		subscribe(ctx, m, bridges)
+	}
+	cfg.OnConnectionLost = func(_ paho.Client, err error) {
+		logrus.Errorf("MQTT broker connection lost: %s", err.Error())
+	}
+
+	m := paho.NewClient(cfg)
 	if token := m.Connect(); token.Wait() && token.Error() != nil {
 		logrus.Fatal(token.Error())
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	bridges := shutter2mqttFromConfig(ctx, m)
+	bridges = shutter2mqttFromConfig(ctx, m)
+	subscribe(ctx, m, bridges)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -50,6 +60,14 @@ func main() {
 		cancel()
 	}()
 
+	<-ctx.Done()
+
+	cleanupTime := time.Second
+	logrus.Infof("cleanups for %s...", cleanupTime.String())
+	time.Sleep(cleanupTime)
+}
+
+func subscribe(ctx context.Context, m paho.Client, bridges []*mqtt.Bridge) {
 	for _, bridge := range bridges {
 		if Cfg.HASS.Enabled {
 			entity := mqtt.NewHACoverFromMQTTBridge(bridge)
@@ -61,13 +79,6 @@ func main() {
 
 		if err := bridge.Subscribe(ctx); err != nil {
 			logrus.Error(err)
-			cancel()
 		}
 	}
-
-	<-ctx.Done()
-
-	cleanupTime := time.Second
-	logrus.Infof("cleanups for %s...", cleanupTime.String())
-	time.Sleep(cleanupTime)
 }
