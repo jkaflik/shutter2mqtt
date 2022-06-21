@@ -11,9 +11,8 @@ require (
 
 require (
 	github.com/cristalhq/aconfig v0.16.8
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.7.4
 	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
 	golang.org/x/sys v0.0.0-20201126233918-771906719818 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
