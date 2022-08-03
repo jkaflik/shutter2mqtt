@@ -23,3 +23,7 @@ func (r *PairedRelay) EnableFor(ctx context.Context, duration time.Duration) err
 
 	return r.r.EnableFor(ctx, duration)
 }
+
+func (r *PairedRelay) IsEnabled() bool {
+	return r.r.IsEnabled()
+}

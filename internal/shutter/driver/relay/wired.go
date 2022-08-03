@@ -50,6 +50,8 @@ type SetPin interface {
 type Wired struct {
 	Pin          SetPin
 	NormalClosed bool
+
+	isEnabled bool
 }
 
 func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
@@ -74,10 +76,18 @@ func (p *Wired) EnableFor(ctx context.Context, duration time.Duration) error {
 	}
 }
 
+func (p *Wired) IsEnabled() bool {
+	return p.isEnabled
+}
+
 func (p *Wired) enable() error {
+	p.isEnabled = true
+
 	return p.Pin.High()
 }
 
 func (p *Wired) disable() error {
+	p.isEnabled = false
+
 	return p.Pin.Low()
 }

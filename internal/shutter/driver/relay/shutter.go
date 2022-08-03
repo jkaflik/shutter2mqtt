@@ -164,7 +164,7 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 			relay = s.rDown
 		}
 
-		go s.calculatePositionDuringMove(ctx, targetPosition, timeToMove)
+		go s.calculatePositionDuringMove(ctx, relay, targetPosition, timeToMove)
 
 		logrus.Debugf("%s: enable relay for %s", s.name, timeToMove.String())
 		s.updateHandler(s.currentState, s.currentPosition)
@@ -191,7 +191,11 @@ func (s *RelaysShutter) setPosition(ctx context.Context, targetPosition int) err
 	return nil
 }
 
-func (s *RelaysShutter) calculatePositionDuringMove(ctx context.Context, targetPosition int, timeToMove time.Duration) {
+func (s *RelaysShutter) calculatePositionDuringMove(ctx context.Context, r Relay, targetPosition int, timeToMove time.Duration) {
+	for !r.IsEnabled() { // wait until relay is enabled, e.g. waiting for empty pool or something
+		time.Sleep(time.Millisecond)
+	}
+
 	logrus.Debugf("%s: begin position calculation", s.name)
 	s.updateHandler(s.currentState, s.currentPosition)
 
