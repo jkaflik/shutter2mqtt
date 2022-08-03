@@ -35,14 +35,14 @@ checksum:
 dockers:
   - image_templates:
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-amd64
-    use_buildx: true
+    use: buildx
     dockerfile: Dockerfile
     build_flag_templates:
       - "--platform=linux/amd64"
 
   - image_templates:
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-arm7
-    use_buildx: true
+    use: buildx
     dockerfile: Dockerfile
     goarch: arm
     goarm: 7
@@ -51,7 +51,7 @@ dockers:
 
   - image_templates:
       - ghcr.io/jkaflik/{{.ProjectName}}:v{{ .Version }}-arm64
-    use_buildx: true
+    use: buildx
     dockerfile: Dockerfile
     goarch: arm64
     build_flag_templates:
