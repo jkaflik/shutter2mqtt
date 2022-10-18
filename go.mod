@@ -10,7 +10,7 @@ require (
 )
 
 require (
-	github.com/cristalhq/aconfig v0.16.8
+	github.com/cristalhq/aconfig v0.18.3
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
 	golang.org/x/sys v0.0.0-20220731174439-a90be440212d // indirect
